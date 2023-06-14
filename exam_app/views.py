@@ -74,7 +74,7 @@ def login(request):
                 
                 # If the user is valid but not yet activated                
                 elif user[3] != password:
-                    return render(request, 'registration/login.html', {'perror': 'Invalid Password'})
+                    return render(request, 'registration/login.html', {'error': 'Invalid Password'})
                 
             # If the user is invalid    
             elif user == None:
@@ -281,7 +281,7 @@ def dashboard(request):
             unlock_ids = request.POST.getlist('unlocked_ids[]')
             skip_level_1 = request.POST.getlist('skipped_level_1_ids[]')
             
-            print(skip_level_1,unlock_ids)
+            print(skip_level_1, unlock_ids)
             cursor = connection.cursor()
             if unlock_ids:
                 for lockid in unlock_ids:
@@ -289,25 +289,37 @@ def dashboard(request):
             if skip_level_1:
                 for skip_level in skip_level_1:
                     cursor.execute('exec skip_level_1_Candiadtes %s',[skip_level])
-        if applied_for == None:
+            cursor.close()  # Close the cursor after executing the queries
+        
+        if applied_for is None:
             applied_for = 'All'   
+        
         cursor = connection.cursor()
         cursor.execute('exec get_data_dashboard')
         dash_data = cursor.fetchall()
+        
         search_name = request.GET.get('search-bar')
         if search_name == "":
             search_name = None 
-        cursor.execute('exec get_data_tb_candidate_av @name=%s,@applied_for=%s,@start_date=%s,@end_date=%s',[search_name,applied_for,start_date,end_date])
+        
+        cursor.execute('exec get_data_tb_candidate_av @name=%s, @applied_for=%s, @start_date=%s, @end_date=%s', [search_name, applied_for, start_date, end_date])
         candidate_data = cursor.fetchall()
+        
         # candidate_data = [...]  # Your list of candidate data
+        
         items_per_page = 10  # Number of items to display per page
         page_number = request.GET.get('page')  # Get the requested page number from the URL parameters
+        
         paginator = Paginator(candidate_data, items_per_page)  # Create a paginator object
         page_obj = paginator.get_page(page_number)  
         print(candidate_data)
+        
         cursor.execute('exec get_skill_applied_for_data')
         search_filter = cursor.fetchall()
-        return render(request, 'dashboard/dashboard.html',{'dash_data':dash_data,'page_obj': page_obj,'search_filter':search_filter,'start_date':start_date,'end_date':end_date})
+        cursor.close()  # Close the cursor after executing the queries
+        
+        return render(request, 'dashboard/dashboard.html', {'dash_data': dash_data, 'page_obj': page_obj, 'search_filter': search_filter, 'start_date': start_date, 'end_date': end_date})
+    
     return redirect('logout')
 
 def candidate_dashboard(request):
@@ -318,84 +330,109 @@ def candidate_dashboard(request):
         from datetime import date
         today = date.today()
         first_day = date(today.year, today.month, 1)
-        if start_date == '' or start_date == None:
+        if start_date == '' or start_date is None:
             start_date = first_day
-        if end_date == '' or end_date == None:
+        if end_date == '' or end_date is None:
             end_date = today
         if request.method == 'POST':
             unlock_ids = request.POST.getlist('unlocked_ids[]')
             skip_level_1 = request.POST.getlist('skipped_level_1_ids[]')
             
-            print(skip_level_1,unlock_ids)
+            print(skip_level_1, unlock_ids)
             cursor = connection.cursor()
             if unlock_ids:
                 for lockid in unlock_ids:
-                    cursor.execute('exec unlockCandiadtes %s',[lockid])
+                    cursor.execute('exec unlockCandiadtes %s', [lockid])
             if skip_level_1:
                 for skip_level in skip_level_1:
-                    cursor.execute('exec skip_level_1_Candiadtes %s',[skip_level])
-        if applied_for == None:
+                    cursor.execute('exec skip_level_1_Candiadtes %s', [skip_level])
+            cursor.close()  # Close the cursor after executing the queries
+        
+        if applied_for is None:
             applied_for = 'All'   
+        
         cursor = connection.cursor()
         cursor.execute('exec get_data_dashboard')
         dash_data = cursor.fetchall()
+        
         search_name = request.GET.get('search-bar')
         if search_name == "":
             search_name = None 
-
-        cursor.execute('exec get_data_tb_candidate_av @name=%s,@applied_for=%s,@start_date=%s,@end_date=%s',[search_name,applied_for,start_date,end_date])
+        
+        cursor.execute('exec get_data_tb_candidate_av @name=%s, @applied_for=%s, @start_date=%s, @end_date=%s', [search_name, applied_for, start_date, end_date])
         candidate_data = cursor.fetchall()
+        
         # candidate_data = [...]  # Your list of candidate data
+        
         items_per_page = 5  # Number of items to display per page
         page_number = request.GET.get('page')  # Get the requested page number from the URL parameters
+        
         paginator = Paginator(candidate_data, items_per_page)  # Create a paginator object
         page_obj = paginator.get_page(page_number)  
         print(candidate_data)
+        
         cursor.execute('exec get_skill_applied_for_data')
         search_filter = cursor.fetchall()
+        cursor.close()  # Close the cursor after executing the queries
+        
         print(start_date)
         print(end_date)
-        return render(request, 'dashboard/candidate_dashboard.html',{'dash_data':dash_data,'page_obj': page_obj,'search_filter':search_filter,'start_date':start_date,'end_date':end_date})
+        return render(request, 'dashboard/candidate_dashboard.html', {'dash_data': dash_data, 'page_obj': page_obj, 'search_filter': search_filter, 'start_date': start_date, 'end_date': end_date})
+    
     return redirect('logout')
 
 
-def show_candidate_data(request,id):
+
+def show_candidate_data(request, id):
     if request.session.get('user_authenticated'):
         cursor = connection.cursor()
         cursor.execute('EXEC get_candidate_data_by_id %s', [id])
         candidate_data = cursor.fetchone()
         jobPosition = candidate_data[31]
         user_id = candidate_data[0]
-        cursor.execute('exec [get_pass_or_fail_candidate] %s,%s,%s',[jobPosition,user_id,1])
+        cursor.execute('exec [get_pass_or_fail_candidate] %s, %s, %s', [jobPosition, user_id, 1])
         result_1 = cursor.fetchall()
-        cursor.execute('exec [get_pass_or_fail_candidate] %s,%s,%s',[jobPosition,user_id,2])
+        cursor.execute('exec [get_pass_or_fail_candidate] %s, %s, %s', [jobPosition, user_id, 2])
         result_2 = cursor.fetchall()
 
         context = {
-            'candidate_data': candidate_data , 'result_1':result_1,'result_2':result_2      }
+            'candidate_data': candidate_data,
+            'result_1': result_1,
+            'result_2': result_2
+        }
+
+        cursor.close()  # Close the cursor after executing the queries
+
         return render(request, 'dashboard/candidatedata.html', context)
+
     return redirect('logout')
+
 
 def registercandidate(request):
     if request.session.get('user_authenticated'):
         applied_for = request.GET.get('applied_for')
-        if applied_for == None:
-            applied_for = 'All'        
+        if applied_for is None:
+            applied_for = 'All'
         cursor = connection.cursor()
         cursor.execute('exec get_skill_applied_for_data')
         search_filter = cursor.fetchall()
         search_name = request.GET.get('search-bar')
         if search_name == "":
-            search_name = None        
-        cursor.execute('exec get_data_tb_candidate @name=%s,@applied_for=%s',[search_name,applied_for])
+            search_name = None
+        cursor.execute('exec get_data_tb_candidate @name=%s, @applied_for=%s', [search_name, applied_for])
         candidate_data = cursor.fetchall()
 
         context = {
             'candidate_data': candidate_data,
-            'search_filter': search_filter        
-            }
+            'search_filter': search_filter
+        }
+
+        cursor.close()  # Close the cursor after executing the queries
+
         return render(request, 'dashboard/registerdcandidates.html', context)
+
     return redirect('logout')
+
 
 def delete_candidate(request,id):
     if request.session.get('user_authenticated'):

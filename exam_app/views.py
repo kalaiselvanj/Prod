@@ -218,18 +218,18 @@ def image_view(request):
 
 # Create your views here.
 def generate_excel(request):
-    # Get the data from the HTML table    
+    # Get the data from the HTML table
     search_name = request.GET.get('search-bar')
 
     if search_name == "":
         return redirect('dashboard')
-    
+
     cursor = connection.cursor()
     cursor.execute('exec get_data_tb_candidate %s', [search_name])
     candidate_data = cursor.fetchall()
 
-    # Create the table data in the required format    
-    rows = [{ 
+    # Create the table data in the required format
+    rows = [{
         'Candidate Name': row[1] + ' ' + row[2],
         'User id': row[3],
         'Password': row[4],
@@ -238,25 +238,34 @@ def generate_excel(request):
         'End time': row[7],
         'Remaning time': row[8]
     } for row in candidate_data]
-    # Create an in-memory output stream for the Excel file   
+
+    # Close the cursor after fetching the data
+    cursor.close()
+
+    # Create an in-memory output stream for the Excel file
     output = io.BytesIO()
-    # Create a new workbook and add a worksheet    
+
+    # Create a new workbook and add a worksheet
     workbook = xlsxwriter.Workbook(output)
     worksheet = workbook.add_worksheet()
-    # Write the table headers    
+
+    # Write the table headers
     headers = ['S.No', 'Candidate Name', 'User id', 'Password', 'Applied for', 'Start time', 'End time', 'Remaning time']
     for col_num, header in enumerate(headers):
         worksheet.write(0, col_num, header)
-    # Write the table data    
+
+    # Write the table data
     for row_num, row in enumerate(rows):
-        worksheet.write(row_num + 1, 0, row_num + 1) # write the S.No        
+        worksheet.write(row_num + 1, 0, row_num + 1)  # write the S.No
         for col_num, cell_value in enumerate(row.values()):
             worksheet.write(row_num + 1, col_num + 1, cell_value)
-    # Close the workbook    
+
+    # Close the workbook
     workbook.close()
-    # Create the HttpResponse object with the Excel file    
+
+    # Create the HttpResponse object with the Excel file
     response = HttpResponse(content_type='application/vnd.ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="candidate_data.xlsx"'    
+    response['Content-Disposition'] = 'attachment; filename="candidate_data.xlsx"'
     response.write(output.getvalue())
 
     return response
@@ -822,7 +831,6 @@ def logout(request):
     request.session['user_authenticated'] = False    
     return render(request, 'registration/logout.html')
 
-
 def result(request):
     if request.session.get('user_authenticated'):
         cursor = connection.cursor()
@@ -833,9 +841,9 @@ def result(request):
         level = request.GET.get('level')
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
+
         if applied_for:
-            job_name,job_id  = applied_for.split('|')
+            job_name, job_id = applied_for.split('|')
         else:
             job_id = 0
             job_name = None
@@ -846,7 +854,7 @@ def result(request):
         if level == '0':
             level = None
         if start_date == '':
-            start_date= None
+            start_date = None
         if end_date == '':
             end_date = None
         print(job_name)
@@ -854,13 +862,15 @@ def result(request):
         print(level)
         print(start_date)
         print(end_date)
-        cursor.execute('exec [view_results_bycandidate] %s,%s,%s,%s,%s',[job_name,level,filter,start_date,end_date])
+        cursor.execute('exec [view_results_bycandidate] %s,%s,%s,%s,%s', [job_name, level, filter, start_date, end_date])
         user = cursor.fetchall()
-        # result_1 = cursor.fetchall()
-        # cursor.execute('exec [get_pass_or_fail_candidate] %s,%s,%s',[jobPosition,user_id,2])
-        # result_2 = cursor.fetchall()
-        return render(request, 'dashboard/Result.html',{'user':user,'search_filter':search_filter,'job_name':job_name,'start_date':start_date,'end_date':end_date})
+
+        # Close the cursor after fetching the data
+        cursor.close()
+
+        return render(request, 'dashboard/Result.html', {'user': user, 'search_filter': search_filter, 'job_name': job_name, 'start_date': start_date, 'end_date': end_date})
     return redirect('logout')
+
 
 def exam_main_dashboard(request):
     if request.session.get('user_authenticated'):
@@ -873,7 +883,7 @@ def exam_main_dashboard(request):
         print(ip_address)
         cursor.execute('EXEC get_candidate_data_by_id %s', [user[0]])
         candidate_data = cursor.fetchone()
-        
+
         print(candidate_data[38])
         print(candidate_data[31])
         if candidate_data[26] == 1:
@@ -884,7 +894,7 @@ def exam_main_dashboard(request):
             else:
                 return HttpResponse('Completed your exam any quries contact HR')
             cursor = connection.cursor()
-            cursor.execute('exec [get_candidate_applied_job_details] %s,%s',[level,candidate_data[31]])
+            cursor.execute('exec [get_candidate_applied_job_details] %s,%s', [level, candidate_data[31]])
             subjects = cursor.fetchall()
             if subjects == []:
                 return redirect('logout')
@@ -892,21 +902,25 @@ def exam_main_dashboard(request):
             jobposition = subjects[0][1]
             total_duration = subjects[0][10]
             # print(level,jobposition)
-            return render(request,"exam_portal/exam_portal_dashboard.html",{'user':user,'candidate_data':candidate_data,'subjects':subjects,'level':level,'jobposition':jobposition,'total_duration':total_duration})
+
+            # Close the cursor after fetching the data
+            cursor.close()
+
+            return render(request, "exam_portal/exam_portal_dashboard.html", {'user': user, 'candidate_data': candidate_data, 'subjects': subjects, 'level': level, 'jobposition': jobposition, 'total_duration': total_duration})
         return redirect('alertpage')
     return redirect('logout')
 
 def submission(request):
     if request.session.get('user_authenticated'):
-    # request.session.flush()
-    # request.session['user_authenticated'] = False  
+        # request.session.flush()
+        # request.session['user_authenticated'] = False  
         level = request.GET.get('level')
         jobPosition = request.GET.get('applied_for')
         user_id = request.GET.get('user')
-        print(level,jobPosition,user_id)
+        print(level, jobPosition, user_id)
         cursor = connection.cursor()
-        cursor.execute('exec [save_And_Get_Result] %s,%s,%s',[user_id,jobPosition,level])
-        cursor.execute('exec [get_pass_or_fail_candidate] %s,%s,%s',[jobPosition,user_id,level])
+        cursor.execute('exec [save_And_Get_Result] %s,%s,%s', [user_id, jobPosition, level])
+        cursor.execute('exec [get_pass_or_fail_candidate] %s,%s,%s', [jobPosition, user_id, level])
         result = cursor.fetchall()
         passorfail = ''
         print(result)
@@ -914,12 +928,15 @@ def submission(request):
             if i[4] == 'FAIL':
                 passorfail = 'FAIL'
                 break
-
             else:
                 passorfail = 'PASS'
         print(passorfail)
-        cursor.execute('exec update_tb_candidate_status %s,%s',[user_id,passorfail])
-        return render(request, 'dashboard/exam_submission.html',{'result':result,'level':level,'passorfail':passorfail})
+        cursor.execute('exec update_tb_candidate_status %s,%s', [user_id, passorfail])
+
+        # Close the cursor after executing the queries
+        cursor.close()
+
+        return render(request, 'dashboard/exam_submission.html', {'result': result, 'level': level, 'passorfail': passorfail})
     return redirect('logout')
 
 
@@ -933,21 +950,25 @@ def submit_answers(request):
             # print(value)
             if value != None:
                 ans = value
-                question_id,subject_id,user_id = key.split('$')
-                print(question_id,ans,subject_id,user_id)
+                question_id, subject_id, user_id = key.split('$')
+                print(question_id, ans, subject_id, user_id)
                 cursor = connection.cursor()
-                cursor.execute('exec update_ans_candidate %s,%s,%s,%s',[question_id,ans,subject_id,user_id])
+                cursor.execute('exec update_ans_candidate %s,%s,%s,%s', [question_id, ans, subject_id, user_id])
             else:
                 ans = 'Null'
-                question_id,subject_id,user_id = key.split('$')
-                print(question_id,ans,subject_id,user_id)
+                question_id, subject_id, user_id = key.split('$')
+                print(question_id, ans, subject_id, user_id)
                 cursor = connection.cursor()
-                cursor.execute('exec update_ans_candidate %s,%s,%s,%s',[question_id,ans,subject_id,user_id])
-            # return redirect('submission')
+                cursor.execute('exec update_ans_candidate %s,%s,%s,%s', [question_id, ans, subject_id, user_id])
+            # Close the cursor after executing the queries
+            cursor.close()
+
         return JsonResponse({'status': 'success'})
     else:
         return JsonResponse({'status': 'error'})
+
     
+
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 import time

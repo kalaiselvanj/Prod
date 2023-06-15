@@ -173,7 +173,7 @@ def registration(request):
     current_year = dt.now().year
     years = [year for year in range(1990, current_year+1)]
     context = {'countries': countries,'ug':ug,'pg':pg,'branch':branch,'jobs':jobs,'years':years}
-    return render(request, 'registration/registration.html',context)  
+    return render(request, 'registration/registration.html',context)
 
 @csrf_exempt
 def capture_card(request):

@@ -34,6 +34,8 @@ from django.core.files.base import ContentFile
 import json
 from datetime import datetime as dt,timedelta
 # from datetime import date
+from django.contrib.sessions.models import Session
+
 # Create your views here.
 
 
@@ -827,6 +829,7 @@ def alertpage(request):
     return render(request,"exam_portal/alertpage.html")
 
 def logout(request):
+    Session.objects.all().delete()
     request.session.flush()
     request.session['user_authenticated'] = False    
     return render(request, 'registration/logout.html')
